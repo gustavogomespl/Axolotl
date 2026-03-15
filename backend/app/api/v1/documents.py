@@ -1,9 +1,7 @@
 import json
 import uuid
-from datetime import datetime
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from pydantic import BaseModel
 
 from app.services.document_service import DocumentService
 

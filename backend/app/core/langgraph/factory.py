@@ -5,7 +5,6 @@ from pydantic import BaseModel
 from app.core.langgraph.graphs.simple_agent import build_simple_agent
 from app.core.langgraph.graphs.supervisor import build_supervisor_graph
 from app.core.langgraph.graphs.swarm import build_swarm_graph
-from app.core.langgraph.subgraphs.registry import SubgraphRegistry
 from app.core.langgraph.tools.registry import ToolRegistry
 
 

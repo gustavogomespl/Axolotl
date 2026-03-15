@@ -1,8 +1,8 @@
 """Agent quality evaluation tests using DeepEval."""
 
 import json
-import pytest
 
+import pytest
 
 DELEGATION_DATASET = "evals/datasets/supervisor_delegation.json"
 
@@ -16,7 +16,6 @@ def load_delegation_dataset():
 class TestAgentQuality:
     def test_tool_correctness(self):
         """Verify that tools are called with correct arguments."""
-        from deepeval.metrics import ToolCorrectnessMetric
 
         dataset = load_delegation_dataset()
         assert len(dataset) > 0

@@ -86,13 +86,13 @@ class DocumentService:
         if suffix == ".pdf":
             return self._parse_pdf(file_path)
         elif suffix in (".txt", ".md"):
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 return f.read()
         elif suffix == ".docx":
             return self._parse_docx(file_path)
         else:
             # Fallback: try reading as text
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 return f.read()
 
     def _parse_pdf(self, file_path: str) -> str:

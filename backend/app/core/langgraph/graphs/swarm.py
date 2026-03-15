@@ -1,5 +1,5 @@
 from langgraph.prebuilt import create_react_agent
-from langgraph_swarm import create_swarm, create_handoff_tool
+from langgraph_swarm import create_handoff_tool, create_swarm
 
 from app.core.llm.provider import get_chat_model
 

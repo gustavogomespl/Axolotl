@@ -2,12 +2,11 @@ import json
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.core.langgraph.graphs.simple_agent import build_simple_agent
-from app.config import settings
 
 router = APIRouter(tags=["chat"])
 
