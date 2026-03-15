@@ -1,0 +1,15 @@
+[run]
+source = app
+omit =
+    app/models/__init__.py
+    app/api/v1/__init__.py
+    */alembic/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__
+    pass
+    \.\.\.
+show_missing = true
+fail_under = 90
