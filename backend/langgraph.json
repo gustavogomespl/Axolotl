@@ -1,0 +1,7 @@
+{
+  "$schema": "https://langchain-ai.github.io/langgraph/schemas/langgraph.schema.json",
+  "graphs": {
+    "simple_agent": "./app/core/langgraph/graphs/simple_agent.py:build_simple_agent"
+  },
+  "env": ".env"
+}
