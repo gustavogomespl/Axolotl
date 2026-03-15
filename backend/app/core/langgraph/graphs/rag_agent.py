@@ -21,42 +21,70 @@ class RAGState(TypedDict):
     route: str  # "vectorstore", "web_search", "direct"
 
 
-GRADER_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", """You are a grader assessing relevance of a retrieved document to a user question.
+GRADER_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """You are a grader assessing relevance of a retrieved document to a user question.
 If the document contains keyword(s) or semantic meaning related to the question, grade it as relevant.
-Give a binary score 'yes' or 'no' to indicate whether the document is relevant to the question."""),
-    ("human", "Retrieved document:\n{document}\n\nUser question: {question}\n\nRelevant (yes/no):"),
-])
+Give a binary score 'yes' or 'no' to indicate whether the document is relevant to the question.""",
+        ),
+        (
+            "human",
+            "Retrieved document:\n{document}\n\nUser question: {question}\n\nRelevant (yes/no):",
+        ),
+    ]
+)
 
-REWRITE_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", "You are a question rewriter. Improve the question to get better search results."),
-    ("human", "Original question: {question}\n\nImproved question:"),
-])
+REWRITE_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "You are a question rewriter. Improve the question to get better search results.",
+        ),
+        ("human", "Original question: {question}\n\nImproved question:"),
+    ]
+)
 
-HALLUCINATION_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", """You are a grader assessing whether an LLM generation is grounded in a set of retrieved facts.
-Give a binary score 'yes' or 'no'. 'yes' means the answer is grounded in the facts."""),
-    ("human", "Facts:\n{documents}\n\nLLM Generation: {generation}\n\nGrounded (yes/no):"),
-])
+HALLUCINATION_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """You are a grader assessing whether an LLM generation is grounded in a set of retrieved facts.
+Give a binary score 'yes' or 'no'. 'yes' means the answer is grounded in the facts.""",
+        ),
+        ("human", "Facts:\n{documents}\n\nLLM Generation: {generation}\n\nGrounded (yes/no):"),
+    ]
+)
 
-GENERATE_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", """You are an assistant answering questions based on provided context.
+GENERATE_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """You are an assistant answering questions based on provided context.
 Use the following retrieved documents to answer the question.
 If you don't know the answer from the context, say so clearly.
 
 Context:
-{context}"""),
-    ("human", "{question}"),
-])
+{context}""",
+        ),
+        ("human", "{question}"),
+    ]
+)
 
-ROUTER_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", """You are a router that decides how to handle a user question.
+ROUTER_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """You are a router that decides how to handle a user question.
 Choose one of:
 - 'vectorstore': The question can be answered from the knowledge base
 - 'direct': The question is a greeting or simple question that doesn't need retrieval
-Respond with just the word."""),
-    ("human", "{question}"),
-])
+Respond with just the word.""",
+        ),
+        ("human", "{question}"),
+    ]
+)
 
 
 def build_rag_agent(
@@ -103,10 +131,12 @@ def build_rag_agent(
         relevant_docs = []
 
         for doc in state.get("documents", []):
-            result = grader.invoke({
-                "document": doc.page_content,
-                "question": state["question"],
-            })
+            result = grader.invoke(
+                {
+                    "document": doc.page_content,
+                    "question": state["question"],
+                }
+            )
             if "yes" in result.lower():
                 relevant_docs.append(doc)
 
@@ -133,10 +163,12 @@ def build_rag_agent(
         """Generate answer from retrieved documents."""
         context = "\n\n".join(doc.page_content for doc in state.get("documents", []))
         chain = GENERATE_PROMPT | model | StrOutputParser()
-        generation = chain.invoke({
-            "context": context or "No relevant documents found.",
-            "question": state["question"],
-        })
+        generation = chain.invoke(
+            {
+                "context": context or "No relevant documents found.",
+                "question": state["question"],
+            }
+        )
         state["generation"] = generation
         return state
 
@@ -153,10 +185,12 @@ def build_rag_agent(
 
         checker = HALLUCINATION_PROMPT | model | StrOutputParser()
         docs_text = "\n\n".join(doc.page_content for doc in state["documents"])
-        result = checker.invoke({
-            "documents": docs_text,
-            "generation": state["generation"],
-        })
+        result = checker.invoke(
+            {
+                "documents": docs_text,
+                "generation": state["generation"],
+            }
+        )
         return "pass" if "yes" in result.lower() else "fail"
 
     def route_question(state: RAGState) -> Literal["retrieve", "direct"]:
@@ -174,20 +208,32 @@ def build_rag_agent(
     workflow.add_node("direct_answer", direct_answer)
 
     workflow.set_entry_point("classify")
-    workflow.add_conditional_edges("classify", route_question, {
-        "retrieve": "retrieve",
-        "direct": "direct_answer",
-    })
+    workflow.add_conditional_edges(
+        "classify",
+        route_question,
+        {
+            "retrieve": "retrieve",
+            "direct": "direct_answer",
+        },
+    )
     workflow.add_edge("retrieve", "grade_documents")
-    workflow.add_conditional_edges("grade_documents", decide_next, {
-        "generate": "generate",
-        "rewrite": "rewrite_query",
-    })
+    workflow.add_conditional_edges(
+        "grade_documents",
+        decide_next,
+        {
+            "generate": "generate",
+            "rewrite": "rewrite_query",
+        },
+    )
     workflow.add_edge("rewrite_query", "retrieve")
-    workflow.add_conditional_edges("generate", hallucination_check, {
-        "pass": END,
-        "fail": "generate",  # Re-generate
-    })
+    workflow.add_conditional_edges(
+        "generate",
+        hallucination_check,
+        {
+            "pass": END,
+            "fail": "generate",  # Re-generate
+        },
+    )
     workflow.add_edge("direct_answer", END)
 
     return workflow.compile()

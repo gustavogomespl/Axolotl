@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -30,6 +29,7 @@ class ToolTestRequest(BaseModel):
 
 
 # --- Tool CRUD ---
+
 
 @router.post("")
 async def create_tool(request: ToolCreateRequest):
@@ -87,6 +87,7 @@ async def test_tool(name: str, request: ToolTestRequest):
 
 
 # --- MCP Server Management ---
+
 
 @router.post("/mcp-servers")
 async def add_mcp_server(request: MCPServerCreateRequest):

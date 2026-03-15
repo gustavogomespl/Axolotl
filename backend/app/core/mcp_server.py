@@ -25,10 +25,7 @@ async def list_available_skills() -> str:
 
     if not _skills:
         return "No skills registered."
-    return "\n".join(
-        f"- {s['name']} ({s['type']}): {s['description']}"
-        for s in _skills.values()
-    )
+    return "\n".join(f"- {s['name']} ({s['type']}): {s['description']}" for s in _skills.values())
 
 
 @mcp.tool()

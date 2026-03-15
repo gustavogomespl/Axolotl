@@ -50,10 +50,7 @@ async def create_agent(request: AgentCreateRequest):
 @router.get("")
 async def list_agents():
     """List all registered agents."""
-    return [
-        {"id": agent_id, **config}
-        for agent_id, config in _agent_configs.items()
-    ]
+    return [{"id": agent_id, **config} for agent_id, config in _agent_configs.items()]
 
 
 @router.get("/{agent_id}")

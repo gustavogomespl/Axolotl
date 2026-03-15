@@ -47,12 +47,14 @@ class GraphFactory:
                 agents_with_tools = []
                 for agent_cfg in config.agents:
                     tools = ToolRegistry.get_tools(agent_cfg.tool_names or None)
-                    agents_with_tools.append({
-                        "name": agent_cfg.name,
-                        "prompt": agent_cfg.prompt,
-                        "model": agent_cfg.model,
-                        "tools": tools,
-                    })
+                    agents_with_tools.append(
+                        {
+                            "name": agent_cfg.name,
+                            "prompt": agent_cfg.prompt,
+                            "model": agent_cfg.model,
+                            "tools": tools,
+                        }
+                    )
                 return build_supervisor_graph(
                     agents=agents_with_tools,
                     model=config.model,
@@ -63,12 +65,14 @@ class GraphFactory:
                 agents_with_tools = []
                 for agent_cfg in config.agents:
                     tools = ToolRegistry.get_tools(agent_cfg.tool_names or None)
-                    agents_with_tools.append({
-                        "name": agent_cfg.name,
-                        "prompt": agent_cfg.prompt,
-                        "model": agent_cfg.model,
-                        "tools": tools,
-                    })
+                    agents_with_tools.append(
+                        {
+                            "name": agent_cfg.name,
+                            "prompt": agent_cfg.prompt,
+                            "model": agent_cfg.model,
+                            "tools": tools,
+                        }
+                    )
                 return build_swarm_graph(
                     agents=agents_with_tools,
                     model=config.model,

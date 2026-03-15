@@ -24,10 +24,7 @@ class ToolRegistry:
 
     @classmethod
     def list_all(cls) -> list[dict]:
-        return [
-            {"name": name, **meta}
-            for name, meta in cls._metadata.items()
-        ]
+        return [{"name": name, **meta} for name, meta in cls._metadata.items()]
 
     @classmethod
     def remove(cls, name: str) -> bool:
