@@ -1,3 +1,9 @@
+# ChromaDB
+.chroma/
+
+# Node
+node_modules/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -5,6 +11,14 @@ __pycache__/
 
 # C extensions
 *.so
+
+# Environment variables
+.env
+
+# VSCode
+.devcontainer/
+
+# Documentation
 
 # Distribution / packaging
 .Python
