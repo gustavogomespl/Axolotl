@@ -1,0 +1,27 @@
+[
+  {
+    "query": "What is the return policy for products?",
+    "expected_context": "30-day return policy for unused items",
+    "expected_answer": "Products can be returned within 30 days if unused and in original packaging."
+  },
+  {
+    "query": "How do I contact customer support?",
+    "expected_context": "Customer support available via email and phone",
+    "expected_answer": "You can contact customer support via email at support@example.com or by phone at 1-800-EXAMPLE."
+  },
+  {
+    "query": "What payment methods are accepted?",
+    "expected_context": "We accept credit cards, PayPal, and bank transfers",
+    "expected_answer": "We accept Visa, Mastercard, American Express, PayPal, and direct bank transfers."
+  },
+  {
+    "query": "What are the shipping options?",
+    "expected_context": "Standard shipping 5-7 days, express 2-3 days",
+    "expected_answer": "We offer standard shipping (5-7 business days) and express shipping (2-3 business days)."
+  },
+  {
+    "query": "Is there a warranty on electronics?",
+    "expected_context": "1-year manufacturer warranty on all electronics",
+    "expected_answer": "All electronics come with a 1-year manufacturer warranty covering defects."
+  }
+]

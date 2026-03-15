@@ -1,0 +1,27 @@
+[
+  {
+    "query": "What is the square root of 144?",
+    "expected_worker": "math_agent",
+    "expected_answer_contains": "12"
+  },
+  {
+    "query": "Search for the latest news about AI",
+    "expected_worker": "research_agent",
+    "expected_answer_contains": "AI"
+  },
+  {
+    "query": "Calculate 15% tip on a $85.50 bill",
+    "expected_worker": "math_agent",
+    "expected_answer_contains": "12"
+  },
+  {
+    "query": "What are the current trends in machine learning?",
+    "expected_worker": "research_agent",
+    "expected_answer_contains": "machine learning"
+  },
+  {
+    "query": "Solve the equation: 3x + 7 = 22",
+    "expected_worker": "math_agent",
+    "expected_answer_contains": "5"
+  }
+]

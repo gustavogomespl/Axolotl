@@ -1,0 +1,27 @@
+[
+  {
+    "query": "Look up order #12345",
+    "expected_tool": "lookup_order",
+    "expected_args": {"order_id": "12345"}
+  },
+  {
+    "query": "Check if product SKU-789 is in stock",
+    "expected_tool": "check_stock",
+    "expected_args": {"sku": "SKU-789"}
+  },
+  {
+    "query": "Search our knowledge base for return policies",
+    "expected_tool": "search_knowledge_base",
+    "expected_args": {"query": "return policies"}
+  },
+  {
+    "query": "What is the weather in São Paulo?",
+    "expected_tool": "web_search",
+    "expected_args": {"query": "weather São Paulo"}
+  },
+  {
+    "query": "Calculate the total cost of 3 items at $29.99 each with 8% tax",
+    "expected_tool": "calculator",
+    "expected_args": {"expression": "3 * 29.99 * 1.08"}
+  }
+]
