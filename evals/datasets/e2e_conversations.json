@@ -1,0 +1,24 @@
+[
+  {
+    "conversation": [
+      {"role": "user", "content": "Hi, I need help with an order"},
+      {"role": "assistant", "content_contains": "help"},
+      {"role": "user", "content": "My order #54321 hasn't arrived yet"},
+      {"role": "assistant", "content_contains": "order"},
+      {"role": "user", "content": "Can I get a refund?"},
+      {"role": "assistant", "content_contains": "refund"}
+    ],
+    "expected_agents_used": ["support_agent"],
+    "expected_tools_used": ["lookup_order"]
+  },
+  {
+    "conversation": [
+      {"role": "user", "content": "What products do you recommend for a new puppy?"},
+      {"role": "assistant", "content_contains": "puppy"},
+      {"role": "user", "content": "Do you have any puppy food in stock?"},
+      {"role": "assistant", "content_contains": "stock"}
+    ],
+    "expected_agents_used": ["sales_agent"],
+    "expected_tools_used": ["search_knowledge_base", "check_stock"]
+  }
+]
