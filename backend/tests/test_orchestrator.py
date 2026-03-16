@@ -51,7 +51,7 @@ async def test_no_workers_no_planner_uses_project_planner_prompt():
         model_name=project.model,
         system_prompt="Project system prompt",
     )
-    assert result == "hello from simple"
+    assert result.content == "hello from simple"
 
 
 @pytest.mark.asyncio
@@ -90,7 +90,7 @@ async def test_no_workers_has_planner_uses_planner_prompt():
         model_name="openai:gpt-4.1",
         system_prompt="Planner agent prompt",
     )
-    assert result == "planner reply"
+    assert result.content == "planner reply"
 
 
 @pytest.mark.asyncio
@@ -121,7 +121,7 @@ async def test_no_workers_no_planner_no_planner_prompt_falls_back():
         model_name="openai:gpt-4.1-mini",
         system_prompt="You are a helpful assistant.",
     )
-    assert result == "default"
+    assert result.content == "default"
 
 
 @pytest.mark.asyncio
@@ -154,7 +154,7 @@ async def test_no_workers_model_override_used():
         model_name="anthropic:claude-sonnet-4",
         system_prompt="You are a helpful assistant.",
     )
-    assert result == "overridden"
+    assert result.content == "overridden"
 
 
 # ---------------------------------------------------------------------------
@@ -225,17 +225,18 @@ async def test_workers_and_planner_builds_supervisor():
         prompt="Research things.",
     )
 
-    # Supervisor was created with planner.prompt
-    mock_sup.assert_called_once_with(
-        agents=[mock_worker_graph],
-        model=mock_supervisor_model,
-        prompt="Supervise the workers.",
-    )
+    # Supervisor was created with planner.prompt (enriched with TODO_INSTRUCTIONS)
+    mock_sup.assert_called_once()
+    sup_kwargs = mock_sup.call_args.kwargs
+    assert sup_kwargs["agents"] == [mock_worker_graph]
+    assert sup_kwargs["model"] == mock_supervisor_model
+    assert sup_kwargs["prompt"].startswith("Supervise the workers.")
+    assert "state_schema" in sup_kwargs
 
     # Compiled without checkpointer
     mock_supervisor_builder.compile.assert_called_once_with()
 
-    assert result == "supervisor done"
+    assert result.content == "supervisor done"
 
 
 @pytest.mark.asyncio
@@ -274,8 +275,8 @@ async def test_workers_no_planner_uses_project_planner_prompt():
         )
 
     # prompt comes from project.planner_prompt
-    assert mock_sup.call_args.kwargs["prompt"] == "Coordinate tasks"
-    assert result == "coded"
+    assert mock_sup.call_args.kwargs["prompt"].startswith("Coordinate tasks")
+    assert result.content == "coded"
 
 
 @pytest.mark.asyncio
@@ -442,7 +443,7 @@ async def test_returns_last_message_content():
             thread_id="t-10",
         )
 
-    assert result == "third and final"
+    assert result.content == "third and final"
 
 
 @pytest.mark.asyncio
@@ -528,4 +529,4 @@ async def test_multiple_workers_each_gets_react_agent():
     # supervisor receives a list of 2 worker graphs
     sup_call_agents = mock_sup.call_args.kwargs["agents"]
     assert len(sup_call_agents) == 2
-    assert result == "multi"
+    assert result.content == "multi"
