@@ -1,7 +1,7 @@
 from typing import Any, Literal
 
 import httpx
-from langchain_core.tools import tool
+from langchain_core.tools import BaseTool
 from pydantic import BaseModel
 
 
@@ -21,12 +21,17 @@ class APIToolConfig(BaseModel):
     auth_config: dict[str, str] = {}
 
 
-def create_api_tool(config: APIToolConfig):
-    """Generate a LangChain tool dynamically from an APIToolConfig."""
+class _DynamicAPITool(BaseTool):
+    """A dynamically created API tool backed by an APIToolConfig."""
 
-    @tool(name=config.name, description=config.description)
-    async def dynamic_api_tool(**kwargs: Any) -> str:
-        """Dynamically created API tool."""
+    api_config: APIToolConfig
+
+    def _run(self, **kwargs: Any) -> str:
+        raise NotImplementedError("Use ainvoke for async execution")
+
+    async def _arun(self, **kwargs: Any) -> str:
+        config = self.api_config
+
         # Interpolate URL placeholders
         url = config.url
         for key, value in kwargs.items():
@@ -82,4 +87,11 @@ def create_api_tool(config: APIToolConfig):
 
         return result[:2000]  # Truncate for safety
 
-    return dynamic_api_tool
+
+def create_api_tool(config: APIToolConfig) -> BaseTool:
+    """Generate a LangChain tool dynamically from an APIToolConfig."""
+    return _DynamicAPITool(
+        name=config.name,
+        description=config.description,
+        api_config=config,
+    )

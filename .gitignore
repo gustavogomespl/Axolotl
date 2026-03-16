@@ -19,6 +19,7 @@ __pycache__/
 .devcontainer/
 
 # Documentation
+# references/
 
 # Distribution / packaging
 .Python
