@@ -1,6 +1,9 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.database import get_db
@@ -29,8 +32,8 @@ class ProjectResponse(BaseModel):
     description: str | None = None
     planner_prompt: str | None = None
     model: str | None = None
-    created_at: str
-    updated_at: str
+    created_at: datetime
+    updated_at: datetime
 
     model_config = {"from_attributes": True}
 
@@ -44,16 +47,19 @@ async def create_project(request: ProjectCreate, db: AsyncSession = Depends(get_
         model=request.model,
     )
     db.add(project)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=f"Project '{request.name}' already exists")
     await db.refresh(project)
     return project
 
 
-@router.get("")
+@router.get("", response_model=list[ProjectResponse])
 async def list_projects(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Project).order_by(Project.created_at.desc()))
-    projects = result.scalars().all()
-    return [ProjectResponse.model_validate(p) for p in projects]
+    return result.scalars().all()
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)

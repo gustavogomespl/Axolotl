@@ -8,7 +8,12 @@ from app.api.v1.router import router as v1_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    # Startup: create tables if they don't exist
+    from app.models.database import Base, engine
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
     yield
     # Shutdown
     from app.core.redis import redis_manager
