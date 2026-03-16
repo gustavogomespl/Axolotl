@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.services.orchestrator import OrchestratorResult
 from tests.factories import (
     make_agent,
     make_conversation,
@@ -13,6 +14,17 @@ from tests.factories import (
 
 PROJECT_ID = "proj-chat-123"
 BASE_URL = f"/api/v1/projects/{PROJECT_ID}/chat"
+
+
+def _make_orch_result(content, todo_list=None, completed_tasks=None, files=None):
+    return OrchestratorResult(
+        content=content,
+        state={
+            "todo_list": todo_list or [],
+            "completed_tasks": completed_tasks or [],
+            "files": files or [],
+        },
+    )
 
 
 def _mock_execute_returns_list(mock_db, items):
@@ -41,7 +53,7 @@ async def test_chat_basic(mock_redis, mock_orchestrate, client, mock_db):
     mock_db.execute.return_value = mock_result
 
     mock_redis.get_saver = AsyncMock(return_value=MagicMock())
-    mock_orchestrate.return_value = "Hello! How can I help?"
+    mock_orchestrate.return_value = _make_orch_result("Hello! How can I help?")
 
     response = await client.post(
         BASE_URL,
@@ -64,7 +76,7 @@ async def test_chat_with_thread_id(mock_redis, mock_orchestrate, client, mock_db
 
     _mock_execute_returns_list(mock_db, [])
     mock_redis.get_saver = AsyncMock(return_value=MagicMock())
-    mock_orchestrate.return_value = "continued reply"
+    mock_orchestrate.return_value = _make_orch_result("continued reply")
 
     response = await client.post(
         BASE_URL,
@@ -86,7 +98,7 @@ async def test_chat_with_phone_number(mock_redis, mock_orchestrate, client, mock
 
     _mock_execute_returns_list(mock_db, [])
     mock_redis.get_saver = AsyncMock(return_value=MagicMock())
-    mock_orchestrate.return_value = "response to phone user"
+    mock_orchestrate.return_value = _make_orch_result("response to phone user")
 
     response = await client.post(
         BASE_URL,
@@ -113,7 +125,7 @@ async def test_chat_without_phone_number_no_persistence(
 
     _mock_execute_returns_list(mock_db, [])
     mock_redis.get_saver = AsyncMock(return_value=MagicMock())
-    mock_orchestrate.return_value = "ephemeral reply"
+    mock_orchestrate.return_value = _make_orch_result("ephemeral reply")
 
     response = await client.post(
         BASE_URL,
@@ -136,7 +148,7 @@ async def test_chat_redis_unavailable(mock_redis, mock_orchestrate, client, mock
 
     _mock_execute_returns_list(mock_db, [])
     mock_redis.get_saver = AsyncMock(side_effect=ConnectionError("redis down"))
-    mock_orchestrate.return_value = "still works"
+    mock_orchestrate.return_value = _make_orch_result("still works")
 
     response = await client.post(
         BASE_URL,
@@ -162,7 +174,7 @@ async def test_chat_with_model_override(mock_redis, mock_orchestrate, client, mo
 
     _mock_execute_returns_list(mock_db, [])
     mock_redis.get_saver = AsyncMock(return_value=MagicMock())
-    mock_orchestrate.return_value = "override reply"
+    mock_orchestrate.return_value = _make_orch_result("override reply")
 
     response = await client.post(
         BASE_URL,
