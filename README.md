@@ -1,45 +1,45 @@
 # Axolotl
 
-A multi-agent framework built with LangGraph, FastAPI and NiceGUI. Supports dynamic agent orchestration (supervisor, swarm, single), agentic RAG with corrective retrieval, pluggable tools via MCP, and a web-based admin dashboard for managing the entire system without touching code.
+A multi-agent framework built with LangGraph and FastAPI. Each project has a planner agent that orchestrates worker agents, each with their own tools, skills, and MCP servers. Conversations are persisted by phone number (30 days) with Redis-backed session memory (3h window).
 
 ---
 
 ## Architecture
 
 ```
-                    NiceGUI Admin UI (:8080)
-                           |
-                    FastAPI Backend (:8000)
-                           |
-               +-----------+-----------+
-               |           |           |
-          LangGraph    Tool Registry   RAG Engine
-          (agents)     (native/API/MCP) (ChromaDB)
-               |           |           |
-        +------+------+    |    +------+------+
-        |      |      |    |    |             |
-    Supervisor Swarm  Single|  Retrieve    Grade
-     pattern  pattern agent |  + Rewrite   + Check
-                            |
-               +------------+------------+
-               |            |            |
-           PostgreSQL     Redis       ChromaDB
-           (state)       (tasks)     (vectors)
+          React + shadcn/ui (:8080)
+                  |
+           nginx reverse proxy
+                  |
+           FastAPI Backend (:8000)
+                  |
+     +------------+------------+
+     |            |            |
+  Orchestrator  Tool Registry  RAG Engine
+  (planner →    (API / MCP)   (ChromaDB)
+   workers)          |
+     |               |
+     +-------+-------+-------+
+             |       |       |
+         PostgreSQL Redis  ChromaDB
+         (data)    (sessions) (vectors)
 ```
 
-**Backend** (`:8000`) -- FastAPI with LangGraph engine, REST API, SSE streaming, MCP server exposure.
+**Backend** (`:8000`) -- FastAPI with LangGraph supervisor pattern, project-scoped REST API, SSE streaming, MCP server.
 
-**Admin UI** (`:8080`) -- NiceGUI dashboard for managing agents, skills, documents, tools, and chat.
+**Admin UI** (`:8080`) -- React + shadcn/ui + Tailwind CSS. Manages projects, agents, skills, tools, MCP servers, documents, chat, and conversation history.
 
-**Infrastructure** -- PostgreSQL (pgvector) for persistence, Redis for task queue, ChromaDB for vector storage.
+**Infrastructure** -- PostgreSQL (pgvector) for data, Redis for LangGraph checkpointing (3h sessions), ChromaDB for vector storage.
 
 ---
 
-## Requirements
+## How It Works
 
-- Docker and Docker Compose
-- At least one LLM API key (OpenAI or Anthropic)
-- Python 3.11+ (only for local development without Docker)
+1. **Projects** are the top-level container. Each project has a planner prompt and a default model.
+2. **Agents** belong to a project. One agent is marked as the **planner** (`is_planner=true`), the rest are **workers**.
+3. Each agent can be linked to **tools** (API or MCP), **skills** (RAG, prompt), and **MCP servers**.
+4. When a message is sent to chat, the **orchestrator** loads the project's agents and their resources from the database, builds a LangGraph supervisor graph, and invokes it.
+5. **Conversations** are persisted at the phone number level for 30 days. Active sessions are managed via Redis with a 3-hour window.
 
 ---
 
@@ -66,40 +66,31 @@ DEFAULT_MODEL=openai:gpt-4.1-mini
 docker compose up
 ```
 
-That's it. This builds and starts all services (PostgreSQL, Redis, ChromaDB, backend, admin UI) and runs database migrations automatically.
-
 Services:
-- Backend API: `http://localhost:8000`
 - Admin UI: `http://localhost:8080`
+- Backend API: `http://localhost:8000`
 - PostgreSQL: `localhost:5432`
 - Redis: `localhost:6379`
 - ChromaDB: `localhost:8001`
 
-Verify with:
+Verify:
 
 ```bash
 curl http://localhost:8000/api/v1/health
 ```
 
-You can also start individual services:
+### Local development
 
 ```bash
-docker compose up postgres redis chromadb   # infrastructure only
-docker compose up backend                   # backend + dependencies
-docker compose up admin                     # admin UI + backend + dependencies
-```
+# Infrastructure
+docker compose -f docker-compose.dev.yml up -d
 
-Stop everything with `docker compose down`.
+# Backend (hot-reload)
+cd backend && pip install -e ".[dev]"
+uvicorn app.main:app --reload --port 8000
 
-### Local development (without Docker for backend)
-
-If you prefer running the backend locally for hot-reload:
-
-```bash
-docker compose up -d postgres redis chromadb   # start infra
-cd backend && pip install -e ".[dev]"           # install deps
-alembic upgrade head                            # run migrations
-uvicorn app.main:app --reload --port 8000       # start backend
+# Frontend (hot-reload)
+cd admin_ui && npm install && npm run dev
 ```
 
 ---
@@ -108,205 +99,165 @@ uvicorn app.main:app --reload --port 8000       # start backend
 
 ```
 axolotl/
-|-- backend/
-|   |-- app/
-|   |   |-- main.py                  # FastAPI application factory
-|   |   |-- config.py                # Environment settings (Pydantic)
-|   |   |-- api/v1/
-|   |   |   |-- router.py            # Route aggregation
-|   |   |   |-- health.py            # GET /health
-|   |   |   |-- chat.py              # POST /chat, /chat/stream (SSE)
-|   |   |   |-- agents.py            # Agent CRUD
-|   |   |   |-- skills.py            # Skill CRUD
-|   |   |   |-- documents.py         # Document upload and ingestion
-|   |   |   +-- tools.py             # Tool and MCP server management
-|   |   |-- core/
-|   |   |   |-- langgraph/
-|   |   |   |   |-- state.py         # AgentState schema
-|   |   |   |   |-- factory.py       # GraphFactory (builds agents from config)
-|   |   |   |   |-- graphs/
-|   |   |   |   |   |-- simple_agent.py    # Single ReAct agent
-|   |   |   |   |   |-- supervisor.py      # Supervisor + workers pattern
-|   |   |   |   |   |-- swarm.py           # Decentralized swarm pattern
-|   |   |   |   |   +-- rag_agent.py       # Corrective/Adaptive RAG
-|   |   |   |   |-- tools/
-|   |   |   |   |   |-- registry.py        # Tool registry
-|   |   |   |   |   |-- api_tool.py        # Dynamic HTTP tool builder
-|   |   |   |   |   +-- mcp_manager.py     # MCP client manager
-|   |   |   |   +-- subgraphs/
-|   |   |   |       +-- registry.py        # Reusable subgraph registry
-|   |   |   |-- llm/
-|   |   |   |   +-- provider.py      # Multi-provider LLM init
-|   |   |   |-- vector_store/
-|   |   |   |   +-- client.py        # ChromaDB collection manager
-|   |   |   +-- mcp_server.py        # Axolotl as MCP server (FastMCP)
-|   |   |-- models/                  # SQLAlchemy ORM models
-|   |   +-- services/
-|   |       +-- document_service.py  # Parse, chunk, embed, index pipeline
-|   |-- tests/
-|   |-- alembic/                     # Database migrations
-|   +-- pyproject.toml
-|
-|-- admin_ui/
-|   |-- main.py                      # NiceGUI entrypoint
-|   +-- pages/
-|       |-- layout.py                # Shared navigation
-|       |-- chat_page.py             # Chat interface with streaming
-|       |-- agents_page.py           # Agent management
-|       |-- skills.py                # Skill management
-|       |-- documents.py             # Document upload
-|       |-- tools_page.py            # Tool and MCP management
-|       +-- evals_page.py            # Evaluation dashboard
-|
-|-- evals/                           # Evaluation suite (DeepEval, RAGAS)
-|   |-- test_agent_quality.py
-|   |-- test_rag_quality.py
-|   +-- datasets/                    # Test datasets (JSON)
-|
-|-- docker/
-|   |-- Dockerfile.backend
-|   |-- Dockerfile.admin
-|   +-- entrypoint.sh          # Auto-runs migrations on startup
-|
-|-- docker-compose.yml               # Full production stack
-|-- docker-compose.dev.yml           # Infrastructure only (dev)
-|-- Makefile
-|-- .env.example
-+-- ruff.toml
+├── backend/
+│   ├── app/
+│   │   ├── main.py                     # FastAPI app factory + lifespan
+│   │   ├── config.py                   # Pydantic settings
+│   │   ├── api/v1/
+│   │   │   ├── projects.py             # Project CRUD
+│   │   │   ├── agents.py               # Agent CRUD (with tool/skill/mcp linking)
+│   │   │   ├── chat.py                 # Chat + conversations + streaming
+│   │   │   ├── skills.py               # Skill CRUD + toggle
+│   │   │   ├── tools.py                # Tool CRUD + test
+│   │   │   ├── documents.py            # Document upload + ingestion
+│   │   │   └── mcp_servers.py          # MCP server CRUD + refresh
+│   │   ├── core/
+│   │   │   ├── langgraph/
+│   │   │   │   ├── graphs/
+│   │   │   │   │   ├── simple_agent.py # Single ReAct agent (fallback)
+│   │   │   │   │   └── supervisor.py   # Supervisor pattern (planner → workers)
+│   │   │   │   └── tools/
+│   │   │   │       ├── registry.py     # In-memory tool registry
+│   │   │   │       ├── api_tool.py     # Dynamic HTTP tool builder
+│   │   │   │       └── mcp_manager.py  # MCP client manager
+│   │   │   ├── llm/provider.py         # Multi-provider LLM init
+│   │   │   ├── vector_store/client.py  # ChromaDB collection manager
+│   │   │   ├── redis.py                # Redis manager (LangGraph checkpointer)
+│   │   │   └── mcp_server.py           # Axolotl as MCP server
+│   │   ├── models/                     # SQLAlchemy ORM (project, agent, skill, tool, etc.)
+│   │   └── services/
+│   │       ├── orchestrator.py         # Planner/worker orchestration
+│   │       ├── agent_resolver.py       # Resolves agent DB relations → LangChain tools
+│   │       └── document_service.py     # Parse, chunk, embed, index pipeline
+│   ├── tests/                          # Unit tests (232 tests, 90%+ coverage)
+│   └── pyproject.toml
+│
+├── admin_ui/                           # React + Vite + shadcn/ui + Tailwind
+│   ├── src/
+│   │   ├── pages/                      # Projects, Agents, Skills, Tools, etc.
+│   │   ├── api/                        # API client per resource
+│   │   ├── components/                 # Layout + shared + shadcn/ui
+│   │   └── router.tsx                  # Project-scoped routing
+│   ├── nginx.conf                      # Production nginx (SPA + API proxy)
+│   └── package.json
+│
+├── evals/                              # Evaluation suite (DeepEval, RAGAS)
+├── docker/
+│   ├── Dockerfile.backend
+│   ├── Dockerfile.admin                # Multi-stage: Node build → nginx serve
+│   └── entrypoint.sh
+├── docker-compose.yml                  # Full stack
+├── docker-compose.dev.yml              # Infrastructure only
+├── Makefile
+└── .github/workflows/ci.yml           # Lint + tests (90% coverage gate)
 ```
 
 ---
 
 ## API Endpoints
 
-All endpoints are prefixed with `/api/v1`.
+All endpoints prefixed with `/api/v1`. Resources are scoped to projects.
 
-### Chat
+### Projects
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/chat` | Send message, get response |
-| POST | `/chat/stream` | Send message, get SSE stream |
+| POST | `/projects` | Create project |
+| GET | `/projects` | List projects |
+| GET | `/projects/{id}` | Get project |
+| PUT | `/projects/{id}` | Update project |
+| DELETE | `/projects/{id}` | Delete project |
 
 ### Agents
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/agents` | Create agent (single, supervisor, swarm) |
-| GET | `/agents` | List all agents |
-| GET | `/agents/{id}` | Get agent details |
-| DELETE | `/agents/{id}` | Delete agent |
+| POST | `/projects/{id}/agents` | Create agent (with tool_ids, skill_ids, mcp_server_ids) |
+| GET | `/projects/{id}/agents` | List agents |
+| GET | `/projects/{id}/agents/{aid}` | Get agent |
+| PUT | `/projects/{id}/agents/{aid}` | Update agent |
+| DELETE | `/projects/{id}/agents/{aid}` | Delete agent |
+
+### Chat
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/projects/{id}/chat` | Send message (supports phone_number for persistence) |
+| POST | `/projects/{id}/chat/stream` | SSE streaming |
+| GET | `/projects/{id}/chat/conversations` | List conversations (filter by phone_number) |
+| GET | `/projects/{id}/chat/conversations/{cid}/messages` | Get messages |
 
 ### Skills
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/skills` | Create skill |
-| GET | `/skills` | List skills |
-| GET | `/skills/{id}` | Get skill |
-| PUT | `/skills/{id}` | Update skill |
-| DELETE | `/skills/{id}` | Delete skill |
-| POST | `/skills/{id}/activate` | Toggle active state |
-
-### Documents
-
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/documents` | Upload and ingest document (PDF, TXT, MD, DOCX) |
-| GET | `/documents` | List documents (optional `?collection=` filter) |
-| GET | `/documents/{id}` | Get document details |
-| DELETE | `/documents/{id}` | Delete document and its chunks |
+| POST | `/projects/{id}/skills` | Create skill (rag, tool, prompt) |
+| GET | `/projects/{id}/skills` | List skills |
+| PUT | `/projects/{id}/skills/{sid}` | Update skill |
+| DELETE | `/projects/{id}/skills/{sid}` | Delete skill |
+| POST | `/projects/{id}/skills/{sid}/activate` | Toggle active |
 
 ### Tools
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/tools` | Register tool (native or API) |
-| GET | `/tools` | List tools |
-| GET | `/tools/{name}` | Get tool details |
-| DELETE | `/tools/{name}` | Remove tool |
-| POST | `/tools/{name}/test` | Test tool with sample input |
-| POST | `/tools/mcp-servers` | Add MCP server |
-| GET | `/tools/mcp-servers` | List MCP servers |
-| DELETE | `/tools/mcp-servers/{name}` | Remove MCP server |
-| POST | `/tools/mcp-servers/{name}/refresh` | Reconnect and reload tools |
+| POST | `/projects/{id}/tools` | Create API tool |
+| GET | `/projects/{id}/tools` | List tools |
+| DELETE | `/projects/{id}/tools/{tid}` | Delete tool |
+| POST | `/projects/{id}/tools/{tid}/test` | Test tool |
 
----
+### MCP Servers
 
-## Agent Patterns
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/projects/{id}/mcp-servers` | Add MCP server |
+| GET | `/projects/{id}/mcp-servers` | List servers |
+| DELETE | `/projects/{id}/mcp-servers/{mid}` | Remove server |
+| POST | `/projects/{id}/mcp-servers/{mid}/refresh` | Reconnect + load tools |
 
-### Single Agent
+### Documents
 
-A standalone ReAct agent with optional tools and a custom system prompt. Good for simple use cases.
-
-### Supervisor
-
-Hierarchical orchestration. A supervisor agent delegates tasks to specialized worker agents. Each worker has its own tools and system prompt. The supervisor decides which worker handles each request.
-
-### Swarm
-
-Decentralized peer-to-peer. Each agent can hand off to any other agent in the group. No central coordinator. Agents decide amongst themselves who should handle the current task.
-
----
-
-## RAG Pipeline
-
-The RAG engine implements corrective and adaptive retrieval:
-
-1. **Classify** -- Determine if the query needs retrieval, web search, or a direct answer.
-2. **Retrieve** -- Search relevant ChromaDB collections.
-3. **Grade** -- Evaluate document relevance (LLM-as-judge).
-4. **Decide** -- If documents are relevant, generate. Otherwise, rewrite query and re-retrieve.
-5. **Generate** -- Produce answer grounded in retrieved context.
-6. **Hallucination check** -- Validate the response against the source documents.
-
-Documents are ingested through the `/documents` endpoint. Supported formats: PDF, DOCX, TXT, Markdown. Files are parsed, split into chunks, embedded, and indexed in ChromaDB.
-
----
-
-## MCP Integration
-
-Axolotl works with MCP in two directions:
-
-**As client** -- Connect to external MCP servers (Streamable HTTP or stdio transport). Tools from those servers are loaded into the tool registry and become available to agents.
-
-**As server** -- Axolotl exposes its own knowledge base and capabilities as an MCP server at `/mcp`, allowing other MCP-compatible clients to query it.
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/projects/{id}/documents` | Upload document (PDF, TXT, MD, DOCX) |
+| GET | `/projects/{id}/documents` | List documents |
+| DELETE | `/projects/{id}/documents/{did}` | Delete document |
 
 ---
 
 ## LLM Providers
 
-The framework supports runtime provider switching via `init_chat_model()`. Set the model using the `provider:model_name` format:
+Runtime provider switching via `provider:model_name` format:
 
 ```
 openai:gpt-4.1-mini
+openai:gpt-4.1
 anthropic:claude-sonnet-4-6
 ollama:llama3
 ```
 
-Change the default model in `.env` (`DEFAULT_MODEL`) or per-agent when creating agents through the API or admin UI.
+Set the default in `.env` (`DEFAULT_MODEL`) or per-project/per-agent.
 
 ---
 
-## Docker Compose Commands
+## MCP Integration
 
-```
-docker compose up                              # Start everything (builds if needed)
-docker compose up -d                           # Start in background
-docker compose up backend                      # Start backend + infra
-docker compose up postgres redis chromadb      # Start infra only
-docker compose down                            # Stop all containers
-docker compose logs -f                         # Follow logs
-docker compose build                           # Rebuild images
+**As client** -- Connect to external MCP servers (HTTP or stdio). Tools are loaded into the registry and linked to agents.
+
+**As server** -- Axolotl exposes its knowledge base at `/mcp` for MCP-compatible clients.
+
+---
+
+## Testing
+
+```bash
+make test         # Run unit tests
+make test-cov     # Run with coverage (fails below 90%)
+make lint         # Ruff + format check
+make evals        # Evaluation pipeline (requires API keys)
 ```
 
-### Makefile (shortcuts)
-
-```
-make lint         Run ruff and mypy
-make test         Run unit tests
-make evals        Run evaluation pipeline
-```
+CI enforces 90% code coverage on every push/PR.
 
 ---
 
@@ -316,26 +267,16 @@ make evals        Run evaluation pipeline
 |----------|----------|---------|-------------|
 | `OPENAI_API_KEY` | Yes* | -- | OpenAI API key |
 | `ANTHROPIC_API_KEY` | Yes* | -- | Anthropic API key |
-| `DEFAULT_MODEL` | No | `openai:gpt-4.1-mini` | Default LLM model |
+| `DEFAULT_MODEL` | No | `openai:gpt-4.1-mini` | Default LLM |
 | `DEFAULT_TEMPERATURE` | No | `0.0` | Default temperature |
-| `DATABASE_URL` | No | auto-set by Docker | PostgreSQL connection string |
-| `REDIS_URL` | No | auto-set by Docker | Redis connection string |
-| `CHROMA_HOST` | No | auto-set by Docker | ChromaDB host |
-| `CHROMA_PORT` | No | auto-set by Docker | ChromaDB port |
-| `LANGSMITH_TRACING` | No | `false` | Enable LangSmith tracing |
-| `LANGSMITH_API_KEY` | No | -- | LangSmith API key |
-| `APP_ENV` | No | `development` | Environment (development/production) |
+| `DATABASE_URL` | No | auto (Docker) | PostgreSQL connection |
+| `REDIS_URL` | No | auto (Docker) | Redis connection |
+| `CHROMA_HOST` | No | auto (Docker) | ChromaDB host |
+| `CHROMA_PORT` | No | auto (Docker) | ChromaDB port |
+| `LANGSMITH_TRACING` | No | `false` | Enable LangSmith |
+| `LANGSMITH_API_KEY` | No | -- | LangSmith key |
 
 *At least one LLM provider key is required.
-
----
-
-## Running Tests
-
-```bash
-make test          # unit tests
-make evals         # evaluation pipeline (requires API keys)
-```
 
 ---
 
