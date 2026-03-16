@@ -1,4 +1,4 @@
-.PHONY: dev infra test lint admin dev-all db-migrate db-seed build up down logs evals
+.PHONY: dev infra test test-cov lint admin dev-all db-migrate db-seed build up down logs evals
 
 # Development
 infra:                    ## Start PostgreSQL + Redis + ChromaDB
@@ -7,12 +7,12 @@ infra:                    ## Start PostgreSQL + Redis + ChromaDB
 dev: infra               ## Start backend with hot-reload
 	cd backend && uvicorn app.main:app --reload --port 8000
 
-admin: infra             ## Start admin UI
-	cd admin_ui && python main.py
+admin: infra             ## Start admin UI (React dev server)
+	cd admin_ui && npm run dev
 
 dev-all: infra           ## Start everything (backend + admin)
 	cd backend && uvicorn app.main:app --reload --port 8000 &
-	cd admin_ui && python main.py
+	cd admin_ui && npm run dev
 
 # Quality
 lint:                    ## Run linter + formatter + type checker
@@ -20,6 +20,9 @@ lint:                    ## Run linter + formatter + type checker
 
 test:                    ## Run unit tests
 	cd backend && pytest tests/ -v
+
+test-cov:                ## Run unit tests with coverage (fails below 90%)
+	cd backend && pytest tests/ -v --cov=app --cov-report=term-missing --cov-fail-under=90
 
 evals:                   ## Run evaluation pipeline
 	cd backend && pytest ../evals/ -v

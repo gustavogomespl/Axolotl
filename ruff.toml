@@ -3,7 +3,10 @@ line-length = 100
 
 [lint]
 select = ["E", "F", "I", "N", "W", "UP"]
-ignore = ["E501"]
+ignore = ["E501", "F821"]
 
 [lint.isort]
 known-first-party = ["app"]
+
+[lint.per-file-ignores]
+"**/tests/**" = ["N806"]
