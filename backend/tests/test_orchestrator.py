@@ -176,11 +176,17 @@ async def test_workers_and_planner_builds_supervisor():
     agents = [planner, worker]
 
     mock_worker_graph = MagicMock(name="worker-graph")
+    mock_worker_model = MagicMock(name="worker-model")
     mock_supervisor_model = MagicMock(name="supervisor-model")
     mock_supervisor_builder = MagicMock(name="supervisor-builder")
     mock_compiled_graph = MagicMock(name="compiled-graph")
     mock_compiled_graph.ainvoke = AsyncMock(return_value=_make_result("supervisor done"))
     mock_supervisor_builder.compile.return_value = mock_compiled_graph
+
+    def gcm_side_effect(model):
+        if model == "openai:gpt-4.1":
+            return mock_supervisor_model
+        return mock_worker_model
 
     with (
         patch("app.services.orchestrator._get_vector_store", return_value=None),
@@ -191,10 +197,8 @@ async def test_workers_and_planner_builds_supervisor():
         ),
         patch(
             "app.services.orchestrator.get_chat_model",
-            side_effect=lambda model: mock_supervisor_model
-            if model == "openai:gpt-4.1"
-            else MagicMock(),
-        ) as mock_gcm,
+            side_effect=gcm_side_effect,
+        ),
         patch(
             "app.services.orchestrator.create_react_agent",
             return_value=mock_worker_graph,
@@ -213,9 +217,9 @@ async def test_workers_and_planner_builds_supervisor():
             thread_id="t-5",
         )
 
-    # Worker react agent was created
+    # Worker react agent was created (worker.model is None, so project.model is used)
     mock_react.assert_called_once_with(
-        model=mock_gcm.return_value,  # worker model call
+        model=mock_worker_model,
         tools=[],
         name="researcher",
         prompt="Research things.",

@@ -11,16 +11,11 @@ import pytest
 
 class TestRedisManagerInit:
     def test_init_uses_settings_redis_url_by_default(self):
-        with patch("app.core.redis.settings") as mock_settings:
-            mock_settings.redis_url = "redis://default:6379/0"
-            from importlib import reload
+        from app.config import settings
+        from app.core.redis import RedisManager
 
-            import app.core.redis as redis_mod
-
-            reload(redis_mod)
-            manager = redis_mod.RedisManager()
-
-        assert manager.redis_url == "redis://default:6379/0"
+        manager = RedisManager()
+        assert manager.redis_url == settings.redis_url
         assert manager._saver is None
 
     def test_init_accepts_custom_redis_url(self):

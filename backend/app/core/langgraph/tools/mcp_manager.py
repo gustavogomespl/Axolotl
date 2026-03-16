@@ -49,7 +49,7 @@ class MCPManager:
 
         client = MultiServerMCPClient({name: server_config})
         async with client:
-            tools = client.get_tools()
+            tools = await client.get_tools()
             for t in tools:
                 ToolRegistry.register(t, category="mcp")
             return tools
@@ -63,7 +63,7 @@ class MCPManager:
 
         client = MultiServerMCPClient(self._servers)
         async with client:
-            tools = client.get_tools()
+            tools = await client.get_tools()
             for t in tools:
                 ToolRegistry.register(t, category="mcp")
             return tools

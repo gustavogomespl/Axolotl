@@ -145,7 +145,7 @@ class TestConnectAndLoadTools:
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch(
-            "app.core.langgraph.tools.mcp_manager.MultiServerMCPClient",
+            "langchain_mcp_adapters.client.MultiServerMCPClient",
             return_value=mock_client,
         ):
             tools = await manager.connect_and_load_tools("srv")
@@ -172,7 +172,7 @@ class TestConnectAndLoadTools:
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch(
-            "app.core.langgraph.tools.mcp_manager.MultiServerMCPClient",
+            "langchain_mcp_adapters.client.MultiServerMCPClient",
             return_value=mock_client,
         ) as mock_cls:
             await manager.connect_and_load_tools("srv")
@@ -210,7 +210,7 @@ class TestConnectAll:
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch(
-            "app.core.langgraph.tools.mcp_manager.MultiServerMCPClient",
+            "langchain_mcp_adapters.client.MultiServerMCPClient",
             return_value=mock_client,
         ):
             tools = await manager.connect_all()
@@ -231,7 +231,7 @@ class TestConnectAll:
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch(
-            "app.core.langgraph.tools.mcp_manager.MultiServerMCPClient",
+            "langchain_mcp_adapters.client.MultiServerMCPClient",
             return_value=mock_client,
         ) as mock_cls:
             await manager.connect_all()

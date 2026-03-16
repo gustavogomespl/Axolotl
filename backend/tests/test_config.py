@@ -6,11 +6,13 @@ from app.config import Settings, settings
 class TestSettingsDefaults:
     """Verify that Settings provides correct defaults when no env vars override."""
 
-    def test_database_url_default(self):
+    def test_database_url_default(self, monkeypatch):
+        monkeypatch.delenv("DATABASE_URL", raising=False)
         s = Settings()
         assert s.database_url == "postgresql+asyncpg://axolotl:axolotl@localhost:5432/axolotl"
 
-    def test_redis_url_default(self):
+    def test_redis_url_default(self, monkeypatch):
+        monkeypatch.delenv("REDIS_URL", raising=False)
         s = Settings()
         assert s.redis_url == "redis://localhost:6379/0"
 

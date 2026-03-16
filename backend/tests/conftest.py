@@ -14,7 +14,7 @@ def mock_db():
     """Create a mock async database session."""
     session = AsyncMock()
     session.add = MagicMock()
-    session.delete = MagicMock()
+    session.delete = AsyncMock()
     session.commit = AsyncMock()
     session.flush = AsyncMock()
     session.refresh = AsyncMock()
