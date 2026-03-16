@@ -28,6 +28,9 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     thread_id: str
     response: str
+    todo_list: list[dict] = []
+    completed_tasks: list[dict] = []
+    files: list[dict] = []
 
 
 @router.post("")
@@ -57,7 +60,7 @@ async def chat(project_id: str, request: ChatRequest, db: AsyncSession = Depends
         checkpointer = None
 
     # Orchestrate via planner/worker pattern
-    response_content = await orchestrate_project_chat(
+    orch_result = await orchestrate_project_chat(
         project=project,
         agents=agents,
         message=request.message,
@@ -73,10 +76,18 @@ async def chat(project_id: str, request: ChatRequest, db: AsyncSession = Depends
         await db.flush()
 
         db.add(Message(conversation_id=conversation.id, role="user", content=request.message))
-        db.add(Message(conversation_id=conversation.id, role="assistant", content=response_content))
+        db.add(
+            Message(conversation_id=conversation.id, role="assistant", content=orch_result.content)
+        )
         await db.commit()
 
-    return ChatResponse(thread_id=thread_id, response=response_content)
+    return ChatResponse(
+        thread_id=thread_id,
+        response=orch_result.content,
+        todo_list=orch_result.todo_list,
+        completed_tasks=orch_result.completed_tasks,
+        files=orch_result.files,
+    )
 
 
 @router.post("/stream")
