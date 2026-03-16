@@ -11,6 +11,9 @@ async def lifespan(app: FastAPI):
     # Startup
     yield
     # Shutdown
+    from app.core.redis import redis_manager
+
+    await redis_manager.close()
 
 
 def create_app() -> FastAPI:
