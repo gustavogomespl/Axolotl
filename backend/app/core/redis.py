@@ -10,18 +10,26 @@ class RedisManager:
         self._store = None
 
     async def get_saver(self):
-        """Get or create AsyncRedisSaver for LangGraph checkpointing (3h TTL)."""
+        """Get or create AsyncRedisSaver for LangGraph checkpointing.
+
+        AsyncRedisSaver.from_conn_string() returns an async context manager.
+        We enter it once and keep the saver instance for the app lifetime.
+        """
         if self._saver is None:
             from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 
-            self._saver = AsyncRedisSaver.from_conn_string(self.redis_url)
-            await self._saver.asetup()
+            cm = AsyncRedisSaver.from_conn_string(self.redis_url)
+            self._saver = await cm.__aenter__()
+            self._cm = cm  # keep reference for cleanup
         return self._saver
 
     async def close(self):
         if self._saver:
             try:
-                await self._saver.aclose()
+                if hasattr(self, "_cm"):
+                    await self._cm.__aexit__(None, None, None)
+                else:
+                    await self._saver.aclose()
             except Exception:
                 pass
             self._saver = None

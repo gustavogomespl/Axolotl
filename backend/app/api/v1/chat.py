@@ -98,13 +98,92 @@ async def chat_stream(project_id: str, request: ChatRequest, db: AsyncSession = 
 
     thread_id = request.thread_id or str(uuid.uuid4())
 
-    # For streaming, use simple agent as supervisor streaming is more complex
-    from app.core.langgraph.graphs.simple_agent import build_simple_agent
+    orchestration_mode = getattr(project, "orchestration_mode", "supervisor")
 
-    agent = build_simple_agent(
-        model_name=request.model or project.model,
-        system_prompt=project.planner_prompt or "You are a helpful assistant.",
+    use_deep_agent = False
+
+    # Always load agents so planner config is available for all modes
+    result = await db.execute(
+        select(Agent)
+        .where(Agent.project_id == project_id)
+        .options(
+            selectinload(Agent.tools),
+            selectinload(Agent.skills),
+            selectinload(Agent.mcp_servers),
+        )
     )
+    agents = list(result.scalars().all())
+    planner = next((a for a in agents if a.is_planner), None)
+    workers = [a for a in agents if not a.is_planner]
+
+    if orchestration_mode == "deep_agent" and workers:
+        use_deep_agent = True
+
+    if use_deep_agent:
+        from app.core.langgraph.graphs.deep_agent import build_deep_agent
+        from app.services.agent_resolver import resolve_agent_tools
+        from app.services.orchestrator import _get_vector_store
+
+        vector_store = _get_vector_store()
+
+        subagents = []
+        for worker in workers:
+            worker_tools = await resolve_agent_tools(worker, vector_store)
+            subagent_config = {
+                "name": worker.name,
+                "description": worker.description or worker.prompt[:200],
+                "system_prompt": worker.prompt,
+                "tools": worker_tools,
+            }
+            if worker.model or project.model:
+                subagent_config["model"] = worker.model or project.model
+            subagents.append(subagent_config)
+
+        # Resolve planner tools (API/MCP/RAG skills as retriever tools)
+        planner_tools = await resolve_agent_tools(planner, vector_store) if planner else []
+
+        # Model: planner.model -> request.model -> project.model
+        model_name = (
+            (planner.model if planner and planner.model else None)
+            or request.model
+            or project.model
+        )
+        from app.services.orchestrator import DEEP_AGENT_TODO_INSTRUCTIONS
+
+        base_prompt = (
+            planner.prompt
+            if planner
+            else project.planner_prompt or "You are a helpful assistant."
+        )
+        system_prompt = base_prompt + DEEP_AGENT_TODO_INSTRUCTIONS
+
+        # Get Redis checkpointer for multi-turn state persistence
+        try:
+            stream_checkpointer = await redis_manager.get_saver()
+        except Exception:
+            stream_checkpointer = None
+
+        agent = build_deep_agent(
+            model=model_name,
+            system_prompt=system_prompt,
+            subagents=subagents,
+            tools=planner_tools,
+            checkpointer=stream_checkpointer,
+        )
+    else:
+        # Fallback to simple agent for streaming — mirror /chat fallback using planner config
+        from app.core.langgraph.graphs.simple_agent import build_simple_agent
+
+        prompt = (
+            planner.prompt if planner
+            else project.planner_prompt or "You are a helpful assistant."
+        )
+        model = (
+            (planner.model if planner and planner.model else None)
+            or request.model
+            or project.model
+        )
+        agent = build_simple_agent(model_name=model, system_prompt=prompt)
 
     async def event_generator():
         yield f"data: {json.dumps({'type': 'metadata', 'thread_id': thread_id})}\n\n"
@@ -123,6 +202,10 @@ async def chat_stream(project_id: str, request: ChatRequest, db: AsyncSession = 
                 yield f"data: {json.dumps({'type': 'tool_start', 'name': event['name']})}\n\n"
             elif kind == "on_tool_end":
                 yield f"data: {json.dumps({'type': 'tool_end', 'name': event['name'], 'output': str(event['data'].get('output', ''))[:500]})}\n\n"
+            elif kind == "on_chain_start" and "lc_agent_name" in event.get("metadata", {}):
+                yield f"data: {json.dumps({'type': 'subagent_start', 'name': event['metadata']['lc_agent_name']})}\n\n"
+            elif kind == "on_chain_end" and "lc_agent_name" in event.get("metadata", {}):
+                yield f"data: {json.dumps({'type': 'subagent_end', 'name': event['metadata']['lc_agent_name']})}\n\n"
 
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 

@@ -1,8 +1,6 @@
 #!/bin/sh
 set -e
 
-echo "Running database migrations..."
-alembic upgrade head 2>/dev/null || echo "No migrations to apply (tables created on startup)"
-
 echo "Starting application..."
+# Migrations are handled by app lifespan (create_all + alembic upgrade/stamp)
 exec "$@"
