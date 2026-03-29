@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -12,11 +13,18 @@ from app.models.project import Project
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
+class OrchestrationMode(str, Enum):
+    supervisor = "supervisor"
+    deep_agent = "deep_agent"
+    simple = "simple"
+
+
 class ProjectCreate(BaseModel):
     name: str
     description: str | None = None
     planner_prompt: str | None = None
     model: str | None = None
+    orchestration_mode: OrchestrationMode = OrchestrationMode.supervisor
 
 
 class ProjectUpdate(BaseModel):
@@ -24,6 +32,7 @@ class ProjectUpdate(BaseModel):
     description: str | None = None
     planner_prompt: str | None = None
     model: str | None = None
+    orchestration_mode: OrchestrationMode | None = None
 
 
 class ProjectResponse(BaseModel):
@@ -32,6 +41,7 @@ class ProjectResponse(BaseModel):
     description: str | None = None
     planner_prompt: str | None = None
     model: str | None = None
+    orchestration_mode: str = "supervisor"
     created_at: datetime
     updated_at: datetime
 
@@ -45,6 +55,7 @@ async def create_project(request: ProjectCreate, db: AsyncSession = Depends(get_
         description=request.description,
         planner_prompt=request.planner_prompt,
         model=request.model,
+        orchestration_mode=request.orchestration_mode.value,
     )
     db.add(project)
     try:

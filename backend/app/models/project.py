@@ -15,6 +15,9 @@ class Project(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     planner_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
     model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    orchestration_mode: Mapped[str] = mapped_column(
+        String(50), default="supervisor", server_default="supervisor"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
