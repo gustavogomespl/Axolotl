@@ -12,6 +12,7 @@ def make_project(**kwargs):
         "description": "A test project",
         "planner_prompt": "You are a planner.",
         "model": "openai:gpt-4.1-mini",
+        "orchestration_mode": "supervisor",
         "created_at": datetime.now(UTC),
         "updated_at": datetime.now(UTC),
     }
